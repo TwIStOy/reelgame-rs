@@ -51,10 +51,6 @@ impl PayTable {
   }
 
   pub fn pay(&self, index: usize, count: usize) -> i32 {
-    if count > 0 {
-      self.data[index][count - 1]
-    } else {
-      0
-    }
+    self.data[index][count - 1]
   }
 }
