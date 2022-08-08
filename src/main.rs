@@ -13,8 +13,15 @@ struct HitResult {
 }
 
 impl HitResult {
-  pub fn new(v: &Vec<i32>) -> HitResult {
-    let icon = v[0];
+  pub fn new(v: &[i32]) -> HitResult {
+    let mut icon = v[0];
+    for i in 0..5 {
+      if v[i] > 0 {
+        icon = v[i];
+        break;
+      }
+    }
+
     let mut count = 0;
     for i in v {
       if *i == icon || (icon < 100 && *i == 0) {
@@ -23,10 +30,15 @@ impl HitResult {
         break;
       }
     }
-    HitResult {
+
+    let res = HitResult {
       icon: icon as usize,
       count,
-    }
+    };
+
+    // println!("check: {:?}, res: {:?}", v, res);
+
+    res
   }
 }
 
@@ -44,7 +56,7 @@ fn main() {
   {
     println!("== test ==");
     let snapshot = vec![
-      reels[0].roll(2),
+      reels[0].roll(34),
       reels[1].roll(0),
       reels[2].roll(2),
       reels[3].roll(2),
@@ -64,14 +76,12 @@ fn main() {
     );
   }
 
-  /*
-  let bar = Arc::new(indicatif::ProgressBar::new(
-    reels[0].len() as u64
-      * reels[1].len() as u64
-      * reels[2].len() as u64
-      * reels[3].len() as u64
-      * reels[4].len() as u64,
-  ));
+  let total_cost = reels[0].len() as u64
+    * reels[1].len() as u64
+    * reels[2].len() as u64
+    * reels[3].len() as u64
+    * reels[4].len() as u64;
+  let bar = Arc::new(indicatif::ProgressBar::new(total_cost));
   bar.set_style(
     ProgressStyle::with_template(
       "[{wide_bar:.cyan/blue}] {pos}/{len} {percent}% {per_sec} ({eta_precise})",
@@ -133,6 +143,9 @@ fn main() {
 
   bar.finish();
 
-  println!("total: {}", total);
-  */
+  println!(
+    "total: {}, RTP: {}",
+    total,
+    (total as f64) / (total_cost as f64)
+  );
 }
