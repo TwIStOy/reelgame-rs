@@ -1,20 +1,15 @@
-use std::{
-  sync::{
-    atomic::AtomicUsize,
-    mpsc::{self, channel},
-    Arc,
-  },
-  thread,
-};
+use std::{sync::Arc, thread};
 
 use indicatif::ProgressStyle;
+use itertools::Itertools;
 
 mod pay;
 mod reel;
 
+#[derive(Debug, Clone)]
 struct HitResult {
-  icon: usize,
-  count: usize,
+  pub icon: usize,
+  pub count: usize,
 }
 
 impl HitResult {
@@ -37,8 +32,6 @@ impl HitResult {
 
 fn main() {
   let pay: pay::PayTable = pay::PayTable::new("data/paytable.json");
-  println!("{:?}", pay);
-
   let reels: Vec<reel::Reel> = vec![
     reel::Reel::new("data/reel1.json"),
     reel::Reel::new("data/reel2.json"),
@@ -46,12 +39,32 @@ fn main() {
     reel::Reel::new("data/reel4.json"),
     reel::Reel::new("data/reel5.json"),
   ];
-  println!("{:?}", reels);
-  println!("{:?}", reels[0].roll(-1));
-
   let hit = reel::HitTable::new("data/hits.json");
-  println!("{:?}", hit);
 
+  {
+    println!("== test ==");
+    let snapshot = vec![
+      reels[0].roll(2),
+      reels[1].roll(0),
+      reels[2].roll(2),
+      reels[3].roll(2),
+      reels[4].roll(0),
+    ];
+    println!("{:?}", snapshot);
+    let hits = hit.hit(&snapshot);
+    let results = hits.iter().map(|x| HitResult::new(x)).collect_vec();
+    println!("{:?}", hits);
+    println!("{:?}", results);
+    println!(
+      "{:?}",
+      results
+        .iter()
+        .map(|x| pay.pay(x.icon, x.count))
+        .collect_vec()
+    );
+  }
+
+  /*
   let bar = Arc::new(indicatif::ProgressBar::new(
     reels[0].len() as u64
       * reels[1].len() as u64
@@ -61,7 +74,7 @@ fn main() {
   ));
   bar.set_style(
     ProgressStyle::with_template(
-      "[{wide_bar:.cyan/blue}] {human_pos}/{human_len} {per_sec} ({eta_precise})",
+      "[{wide_bar:.cyan/blue}] {pos}/{len} {percent}% {per_sec} ({eta_precise})",
     )
     .unwrap()
     .progress_chars("#>-"),
@@ -95,6 +108,7 @@ fn main() {
                     rr[3].roll(d as i32),
                     rr[4].roll(e as i32),
                   ];
+
                   for res in hh.hit(&snapshot).iter().map(|x| HitResult::new(x))
                   {
                     result += pp.pay(res.icon, res.count) as usize;
@@ -120,4 +134,5 @@ fn main() {
   bar.finish();
 
   println!("total: {}", total);
+  */
 }

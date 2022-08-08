@@ -1,10 +1,6 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::{
-  collections::HashMap,
-  fs::File,
-  io::{BufRead, BufReader},
-};
+use std::{collections::HashMap, fs::File, io::BufReader};
 
 lazy_static! {
   pub static ref INT_ID: HashMap<&'static str, i32> = HashMap::from([
