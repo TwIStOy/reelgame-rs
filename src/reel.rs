@@ -3,7 +3,7 @@ use std::{fs::File, io::BufReader};
 use super::pay::INT_ID;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Reel {
   pub icons: Vec<i32>,
 }
@@ -16,7 +16,7 @@ pub struct ReelSnapshot {
 #[derive(Debug, Serialize, Deserialize)]
 struct ReelInterface(Vec<String>);
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HitTable(Vec<Vec<usize>>);
 
 impl Reel {

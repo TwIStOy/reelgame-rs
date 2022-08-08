@@ -32,7 +32,7 @@ lazy_static! {
 #[derive(Debug, Serialize, Deserialize)]
 struct PayTableInterface(HashMap<String, Vec<i32>>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PayTable {
   pub data: Vec<Vec<i32>>,
 }

@@ -1,4 +1,11 @@
-use std::sync::{atomic::AtomicUsize, mpsc::channel, Arc};
+use std::{
+  sync::{
+    atomic::AtomicUsize,
+    mpsc::{self, channel},
+    Arc,
+  },
+  thread,
+};
 
 use indicatif::ProgressStyle;
 
@@ -29,21 +36,20 @@ impl HitResult {
 }
 
 fn main() {
-  let pay: Arc<pay::PayTable> =
-    Arc::new(pay::PayTable::new("data/paytable.json"));
+  let pay: pay::PayTable = pay::PayTable::new("data/paytable.json");
   println!("{:?}", pay);
 
-  let reels: Arc<Vec<reel::Reel>> = Arc::new(vec![
+  let reels: Vec<reel::Reel> = vec![
     reel::Reel::new("data/reel1.json"),
     reel::Reel::new("data/reel2.json"),
     reel::Reel::new("data/reel3.json"),
     reel::Reel::new("data/reel4.json"),
     reel::Reel::new("data/reel5.json"),
-  ]);
+  ];
   println!("{:?}", reels);
   println!("{:?}", reels[0].roll(-1));
 
-  let hit = Arc::new(reel::HitTable::new("data/hits.json"));
+  let hit = reel::HitTable::new("data/hits.json");
   println!("{:?}", hit);
 
   let bar = Arc::new(indicatif::ProgressBar::new(
@@ -60,41 +66,58 @@ fn main() {
     .unwrap()
     .progress_chars("#>-"),
   );
-  let pool = threadpool::ThreadPool::new(8);
-  let total: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
-  for (a, b, c, d, e) in itertools::iproduct!(
-    0..reels[0].len(),
-    0..reels[1].len(),
-    0..reels[2].len(),
-    0..reels[3].len(),
-    0..reels[4].len()
-  ) {
-    let tt = total.clone();
-    let rr = reels.clone();
-    let hh = hit.clone();
+
+  let thread_count = 20;
+  let mut pool = vec![];
+  for i in 0..thread_count {
+    // make threads
     let pp = pay.clone();
+    let hh = hit.clone();
+    let rr = reels.clone();
     let bb = bar.clone();
 
-    pool.execute(move || {
-      let snapshot = vec![
-        rr[0].roll(a as i32),
-        rr[1].roll(b as i32),
-        rr[2].roll(c as i32),
-        rr[3].roll(d as i32),
-        rr[4].roll(e as i32),
-      ];
-      for res in hh.hit(&snapshot).iter().map(|x| HitResult::new(x)) {
-        tt.fetch_add(
-          pp.pay(res.icon, res.count) as usize,
-          std::sync::atomic::Ordering::Relaxed,
-        );
-      }
-      bb.inc(1);
-    });
+    let handler = thread::Builder::new()
+      .name(format!("worker-{i}"))
+      .spawn(move || {
+        let mut result: usize = 0;
+        for a in 0..rr[0].len() {
+          if a % thread_count != i {
+            continue;
+          }
+          for b in 0..rr[1].len() {
+            for c in 0..rr[2].len() {
+              for d in 0..rr[3].len() {
+                for e in 0..rr[4].len() {
+                  let snapshot = vec![
+                    rr[0].roll(a as i32),
+                    rr[1].roll(b as i32),
+                    rr[2].roll(c as i32),
+                    rr[3].roll(d as i32),
+                    rr[4].roll(e as i32),
+                  ];
+                  for res in hh.hit(&snapshot).iter().map(|x| HitResult::new(x))
+                  {
+                    result += pp.pay(res.icon, res.count) as usize;
+                  }
+                }
+              }
+              bb.inc((rr[4].len() * rr[3].len()) as u64);
+            }
+          }
+        }
+        result
+      })
+      .unwrap();
+
+    pool.push(handler);
   }
 
-  pool.join();
+  let mut total = 0;
+  for t in pool {
+    total += t.join().unwrap();
+  }
+
   bar.finish();
 
-  println!("total: {}", total.load(std::sync::atomic::Ordering::SeqCst));
+  println!("total: {}", total);
 }
