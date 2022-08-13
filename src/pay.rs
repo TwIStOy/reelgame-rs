@@ -1,29 +1,6 @@
-use lazy_static::lazy_static;
+use super::card::INT_ID;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::BufReader};
-
-lazy_static! {
-  pub static ref INT_ID: HashMap<&'static str, i32> = HashMap::from([
-    ("WILD", 0),
-    ("PIC01", 01),
-    ("PIC02", 02),
-    ("PIC03", 03),
-    ("PIC04", 04),
-    ("PIC05", 05),
-    ("PIC06", 06),
-    ("PIC07", 07),
-    ("PIC08", 08),
-    ("PIC09", 09),
-    ("PIC10", 10),
-    ("PIC11", 11),
-    ("PIC12", 12),
-    ("PIC13", 13),
-    ("PIC14", 14),
-    ("PIC15", 15),
-    ("SCAT1", 100),
-    ("SCAT2", 101),
-  ]);
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PayTableInterface(HashMap<String, Vec<i32>>);
@@ -51,6 +28,10 @@ impl PayTable {
   }
 
   pub fn pay(&self, index: usize, count: usize) -> i32 {
-    self.data[index][count - 1]
+    if count > 0 {
+      self.data[index][count - 1]
+    } else {
+      0
+    }
   }
 }

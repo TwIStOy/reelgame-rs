@@ -1,6 +1,6 @@
 use std::{fs::File, io::BufReader};
 
-use super::pay::INT_ID;
+use super::card::INT_ID;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]

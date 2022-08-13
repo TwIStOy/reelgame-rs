@@ -1,87 +1,101 @@
-use std::{sync::Arc, thread};
+use std::{
+  collections::HashMap,
+  sync::Arc,
+  thread::{self, JoinHandle},
+};
 
-use indicatif::ProgressStyle;
-use itertools::Itertools;
-use reel::ReelSnapshot;
-
+mod card;
+mod count;
+mod games;
 mod pay;
 mod reel;
 
-#[derive(Debug, Clone)]
-struct HitResult {
-  pub icon: usize,
-  pub count: usize,
-}
+use card::possible_same;
+use count::CountResult;
+use games::{base::base_game_pay, bonus};
+use games::{
+  bonus::bonus_game_pay,
+  feature::{self, SituationKey, SituationValue},
+};
+use indicatif::{ProgressBar, ProgressStyle};
+use itertools::Itertools;
+use pay::PayTable;
+use reel::HitTable;
 
-impl HitResult {
-  pub fn new(v: &[i32]) -> HitResult {
-    let mut icon = v[0];
-    for i in 0..5 {
-      if v[i] > 0 {
-        icon = v[i];
-        break;
-      }
-    }
+fn new_base_worker_thread(
+  pp: PayTable,
+  hh: HitTable,
+  rr: Vec<reel::Reel>,
+  bb: ProgressBar,
+  FEATURE_PAY_E: f64,
+  i: usize,
+  thread_count: usize,
+) -> JoinHandle<(f64, f64, f64)> {
+  thread::Builder::new()
+    .name(format!("worker-{i}"))
+    .spawn(move || {
+      let mut base_result: f64 = 0.;
+      let mut bonus_result: f64 = 0.;
+      let mut feature_result: f64 = 0.;
+      for a in 0..rr[0].len() {
+        if a % thread_count != i {
+          continue;
+        }
+        for b in 0..rr[1].len() {
+          for c in 0..rr[2].len() {
+            for d in 0..rr[3].len() {
+              for e in 0..rr[4].len() {
+                let snapshot = vec![
+                  rr[0].roll(a as i32),
+                  rr[1].roll(b as i32),
+                  rr[2].roll(c as i32),
+                  rr[3].roll(d as i32),
+                  rr[4].roll(e as i32),
+                ];
 
-    if icon >= 11 || icon == 0 {
-      HitResult { icon: 0, count: 0 }
-    } else {
-      let mut count = 0;
-      for i in v {
-        if *i == icon || (icon < 100 && *i == 0) {
-          count += 1;
-        } else {
-          break;
+                base_result += base_game_pay(&snapshot, &&pp) as f64;
+                let (bonus_e, feature_e) =
+                  bonus_game_pay(&snapshot, FEATURE_PAY_E);
+                bonus_result += bonus_e;
+                feature_result += feature_e;
+              }
+            }
+            // bb.inc((rr[4].len() * rr[3].len()) as u64);
+          }
         }
       }
-      let res = HitResult {
-        icon: icon as usize,
-        count,
-      };
-
-      // println!("check: {:?}, res: {:?}", v, res);
-      res
-    }
-  }
-}
-
-fn same_card(left: i32, right: i32) -> bool {
-  if left == right {
-    true
-  } else if left == 0 {
-    right < 100
-  } else if right == 0 {
-    left < 100
-  } else {
-    false
-  }
-}
-
-fn no_same(left: &ReelSnapshot, right: &ReelSnapshot) -> bool {
-  for l in &left.icons {
-    for r in &right.icons {
-      if same_card(*l, *r) {
-        return true;
-      }
-    }
-  }
-
-  false
+      (base_result, bonus_result, feature_result)
+    })
+    .unwrap()
 }
 
 fn main() {
   let pay: pay::PayTable = pay::PayTable::new("data/paytable.json");
   let reels: Vec<reel::Reel> = vec![
-    reel::Reel::new("data/reel1.json"),
-    reel::Reel::new("data/reel2.json"),
-    reel::Reel::new("data/reel3.json"),
-    reel::Reel::new("data/reel4.json"),
-    reel::Reel::new("data/reel5.json"),
+    reel::Reel::new("data/base/reel1.json"),
+    reel::Reel::new("data/base/reel2.json"),
+    reel::Reel::new("data/base/reel3.json"),
+    reel::Reel::new("data/base/reel4.json"),
+    reel::Reel::new("data/base/reel5.json"),
   ];
   let hit = reel::HitTable::new("data/hits.json");
+  let feature_reels: Vec<reel::Reel> = vec![
+    reel::Reel::new("data/feature/reel1.json"),
+    reel::Reel::new("data/feature/reel2.json"),
+    reel::Reel::new("data/feature/reel3.json"),
+    reel::Reel::new("data/feature/reel4.json"),
+    reel::Reel::new("data/feature/reel5.json"),
+  ];
+  let mut feature_pay = feature::FeatureGamePayCalc::new(feature_reels, &pay);
+
+  println!("== BONUS_PAY_E: {:?} ==", *games::bonus::BONUS_PAY_E);
+
+  let FEATURE_PAY_E = feature_pay.get(0, 5).pay_expect;
+  println!("=== FEATURE_PAY_E: {} ===", FEATURE_PAY_E);
 
   if false {
     println!("== test ==");
+    // println!("== BONUS PAY E: {} ==", games::bonus::BONUS_PAY_E.0);
     let snapshot = vec![
       reels[0].roll(34),
       reels[1].roll(5),
@@ -91,7 +105,7 @@ fn main() {
     ];
     println!("{:?}", snapshot);
     let hits = hit.hit(&snapshot);
-    let results = hits.iter().map(|x| HitResult::new(x)).collect_vec();
+    let results = hits.iter().map(|x| CountResult::base(x)).collect_vec();
     println!("{:?}", hits);
     println!("{:?}", results);
     println!(
@@ -107,7 +121,7 @@ fn main() {
       * reels[2].len() as u64
       * reels[3].len() as u64
       * reels[4].len() as u64;
-    let bar = Arc::new(indicatif::ProgressBar::new(total_cost));
+    let bar = indicatif::ProgressBar::new(total_cost);
     bar.set_style(
     ProgressStyle::with_template(
       "[{wide_bar:.cyan/blue}] {pos}/{len} {percent}% {per_sec} ({eta_precise})",
@@ -125,66 +139,35 @@ fn main() {
       let rr = reels.clone();
       let bb = bar.clone();
 
-      let handler = thread::Builder::new()
-        .name(format!("worker-{i}"))
-        .spawn(move || {
-          let mut result: usize = 0;
-          for a in 0..rr[0].len() {
-            if a % thread_count != i {
-              continue;
-            }
-            let s0 = rr[0].roll(a as i32);
-            for b in 0..rr[1].len() {
-              let s1 = rr[1].roll(b as i32);
-
-              if no_same(&s0, &s1) {
-                bb.inc((rr[4].len() * rr[3].len() * rr[2].len()) as u64);
-                continue;
-              }
-
-              for c in 0..rr[2].len() {
-                for d in 0..rr[3].len() {
-                  for e in 0..rr[4].len() {
-                    let snapshot = vec![
-                      rr[0].roll(a as i32),
-                      rr[1].roll(b as i32),
-                      rr[2].roll(c as i32),
-                      rr[3].roll(d as i32),
-                      rr[4].roll(e as i32),
-                    ];
-
-                    for res in hh
-                      .hit(&snapshot)
-                      .iter()
-                      .map(|x| HitResult::new(x))
-                      .filter(|x| x.count >= 2)
-                    {
-                      result += pp.pay(res.icon, res.count) as usize;
-                    }
-                  }
-                }
-                bb.inc((rr[4].len() * rr[3].len()) as u64);
-              }
-            }
-          }
-          result
-        })
-        .unwrap();
-
-      pool.push(handler);
+      pool.push(new_base_worker_thread(
+        pp,
+        hh,
+        rr,
+        bb,
+        FEATURE_PAY_E,
+        i,
+        thread_count,
+      ));
     }
 
-    let mut total = 0;
+    let mut base_total = 0.;
+    let mut bonus_total = 0.;
+    let mut feature_total = 0.;
     for t in pool {
-      total += t.join().unwrap();
+      let (base, bonus, feature) = t.join().unwrap();
+      base_total += base;
+      bonus_total += bonus;
+      feature_total += feature;
     }
 
     bar.finish();
 
     println!(
-      "total: {}, RTP: {}",
-      total,
-      (total as f64) / (total_cost as f64)
+      "RTP: {:.4}%, base RTP: {:.4}%, bonus RTP: {:.4}%, feature RTP: {:.4}%",
+      (base_total + bonus_total + feature_total) / (total_cost as f64) * 100f64,
+      (base_total) / (total_cost as f64) * 100f64,
+      (bonus_total) / (total_cost as f64) * 100f64,
+      (feature_total) / (total_cost as f64) * 100f64
     );
   }
 }
