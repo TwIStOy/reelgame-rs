@@ -69,12 +69,12 @@ fn dfs(
 ) {
   if index == 5 {
     // calc pay
-    let (p0, p1) = CountResult::feature(&current);
+    let cr = CountResult::feature(&current);
+    let value = pay_table.pay(cr.icon, cr.count);
 
-    let value = cmp::max(
-      pay_table.pay(p0.icon, p0.count),
-      pay_table.pay(p1.icon, p1.count),
-    );
+    // if current == &vec![1, 1, 1, 1, 1] {
+    //   println!("== {:?}, cr: {:?}, value: {}", current, cr, value);
+    // }
 
     *total_result += value as f64;
     *total_count += 1;
@@ -107,7 +107,7 @@ fn dfs(
       };
     }
 
-    if expect_count <= 10000000 || has_multi_threaded {
+    if expect_count <= 50000000 || has_multi_threaded {
       for icon in &reels[index].icons {
         current[index] = *icon;
         dfs(
@@ -231,7 +231,7 @@ impl<'a> FeatureGamePayCalc<'a> {
 
     bar.finish();
 
-    if rest_cnt > 0 {
+    if rest_cnt > 0 {    
       for (a, times) in next_map {
         pay_total += (times as f64) * self.get(a, rest_cnt - 1).pay_expect;
       }

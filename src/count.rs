@@ -72,11 +72,17 @@ impl CountResult {
       }
     }
     CountResult { icon: 1, count }
+    // CountResult { icon: 0, count: 0 }
   }
 
-  pub fn feature(v: &[i32]) -> (CountResult, CountResult) {
+  pub fn feature(v: &[i32]) -> CountResult {
     let pic01_as_wild = CountResult::feature_mode_test_pic01_as_wild(&v);
     let pic01 = CountResult::feature_mod_test_pic01(&v);
-    (pic01_as_wild, pic01)
+
+    if pic01_as_wild.count > pic01.count {
+      pic01_as_wild
+    } else {
+      pic01
+    }
   }
 }

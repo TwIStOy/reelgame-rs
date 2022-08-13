@@ -88,6 +88,8 @@ fn main() {
   ];
   let mut feature_pay = feature::FeatureGamePayCalc::new(feature_reels, &pay);
 
+  // println!("---- test: {:?}", CountResult::feature(&vec![0, 0, 3, 1, 3]));
+
   println!("== BONUS_PAY_E: {:?} ==", *games::bonus::BONUS_PAY_E);
 
   let FEATURE_PAY_E = feature_pay.get(0, 5).pay_expect;
