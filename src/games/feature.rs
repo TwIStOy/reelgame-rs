@@ -64,25 +64,17 @@ fn dfs(
   total_result: &mut f64,
   total_count: &mut usize,
   next: &mut HashMap<u8, usize>,
-  bar: &ProgressBar,
   has_multi_threaded: bool,
 ) {
   if index == 5 {
     // calc pay
-    let cr = CountResult::feature(&current);
-    let value = pay_table.pay(cr.icon, cr.count);
+    let (cr0, cr1) = CountResult::feature(&current);
+    let value0 = pay_table.pay(cr0.icon, cr0.count);
+    let value1 = pay_table.pay(cr1.icon, cr1.count);
 
-    // if current == &vec![1, 1, 1, 1, 1] {
-    //   println!("== {:?}, cr: {:?}, value: {}", current, cr, value);
-    // }
-
-    *total_result += value as f64;
+    *total_result += cmp::max(value0, value1) as f64;
     *total_count += 1;
     *next.entry(to_active_value(&current)).or_insert(0) += 1;
-
-    if !has_multi_threaded {
-      bar.inc(1);
-    }
 
     return;
   } else if (active & (1 << index)) > 0 {
@@ -96,7 +88,6 @@ fn dfs(
       total_result,
       total_count,
       next,
-      bar,
       has_multi_threaded,
     );
   } else {
@@ -119,7 +110,6 @@ fn dfs(
           total_result,
           total_count,
           next,
-          bar,
           has_multi_threaded,
         );
       }
@@ -129,7 +119,7 @@ fn dfs(
       } else {
         15
       };
-      println!("Launch Multithread, thread: {}", thread_count);
+      // println!("Launch Multithread, thread: {}", thread_count);
       let mut threads = vec![];
       for thread_id in 0..thread_count {
         let mut my_current = current.clone();
@@ -138,7 +128,6 @@ fn dfs(
         let mut my_total_result: f64 = 0.;
         let mut my_total_count: usize = 0;
         let mut my_next: HashMap<u8, usize> = HashMap::new();
-        let my_bar = bar.clone();
 
         let t = thread::Builder::new()
           .name(format!("feature-{thread_id}"))
@@ -157,7 +146,6 @@ fn dfs(
                 &mut my_total_result,
                 &mut my_total_count,
                 &mut my_next,
-                &my_bar,
                 true,
               );
             }
@@ -191,6 +179,9 @@ impl<'a> FeatureGamePayCalc<'a> {
   }
 
   pub fn get(&mut self, active: u8, rest_cnt: u32) -> SituationValue {
+    if rest_cnt == 0 {
+      return SituationValue { pay_expect: 0. };
+    }
     if let Some(v) = self.record.get(&SituationKey::new(active, rest_cnt)) {
       return v.clone();
     }
@@ -199,22 +190,6 @@ impl<'a> FeatureGamePayCalc<'a> {
     let mut total_count: usize = 0;
     let mut arr: Vec<i32> = vec![0; 5];
     let mut next_map = HashMap::new();
-
-    let mut expect_count: u64 = 1;
-    for i in 0..5 {
-      if active.bitand(1 << i) == 0 {
-        expect_count *= self.reels[i].len() as u64;
-      };
-    }
-
-    let bar = indicatif::ProgressBar::new(expect_count);
-    println!("Calculate ({}, {})", active, rest_cnt);
-    bar.set_style(
-      ProgressStyle::with_template(
-        "[{wide_bar:.cyan/blue}] {pos}/{len} {percent}% {per_sec} ({eta_precise})",
-      )
-      .unwrap()
-      .progress_chars("#>-"));
 
     dfs(
       0,
@@ -225,20 +200,19 @@ impl<'a> FeatureGamePayCalc<'a> {
       &mut pay_total,
       &mut total_count,
       &mut next_map,
-      &bar,
       false,
     );
 
-    bar.finish();
-
-    if rest_cnt > 0 {    
-      for (a, times) in next_map {
-        pay_total += (times as f64) * self.get(a, rest_cnt - 1).pay_expect;
+    pay_total /= total_count as f64;
+    if rest_cnt > 0 {
+      for (a, times) in &next_map {
+        pay_total += (*times as f64) / (total_count as f64)
+          * self.get(*a, rest_cnt - 1).pay_expect;
       }
     }
 
     let sv = SituationValue {
-      pay_expect: pay_total / (total_count as f64),
+      pay_expect: pay_total,
     };
     self
       .record

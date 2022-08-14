@@ -26,7 +26,7 @@ fn new_base_worker_thread(
   pp: PayTable,
   hh: HitTable,
   rr: Vec<reel::Reel>,
-  bb: ProgressBar,
+  // bb: ProgressBar,
   FEATURE_PAY_E: f64,
   i: usize,
   thread_count: usize,
@@ -88,12 +88,14 @@ fn main() {
   ];
   let mut feature_pay = feature::FeatureGamePayCalc::new(feature_reels, &pay);
 
-  // println!("---- test: {:?}", CountResult::feature(&vec![0, 0, 3, 1, 3]));
+  feature_pay.get(15, 1);
 
-  println!("== BONUS_PAY_E: {:?} ==", *games::bonus::BONUS_PAY_E);
+  // println!("---- test: {:?}", CountResult::feature(&vec![0,0,1,10,11]));
+
+  // println!("== BONUS_PAY_E: {:?} ==", *games::bonus::BONUS_PAY_E);
 
   let FEATURE_PAY_E = feature_pay.get(0, 5).pay_expect;
-  println!("=== FEATURE_PAY_E: {} ===", FEATURE_PAY_E);
+  // println!("=== FEATURE_PAY_E: {} ===", FEATURE_PAY_E);
 
   if false {
     println!("== test ==");
@@ -123,14 +125,14 @@ fn main() {
       * reels[2].len() as u64
       * reels[3].len() as u64
       * reels[4].len() as u64;
-    let bar = indicatif::ProgressBar::new(total_cost);
-    bar.set_style(
-    ProgressStyle::with_template(
-      "[{wide_bar:.cyan/blue}] {pos}/{len} {percent}% {per_sec} ({eta_precise})",
-    )
-    .unwrap()
-    .progress_chars("#>-"),
-  );
+    // let bar = indicatif::ProgressBar::new(total_cost);
+    // bar.set_style(
+    // ProgressStyle::with_template(
+    //   "[{wide_bar:.cyan/blue}] {pos}/{len} {percent}% {per_sec} ({eta_precise})",
+    // )
+    // .unwrap()
+    // .progress_chars("#>-"));
+    // bar.inc(1);
 
     let thread_count = 20;
     let mut pool = vec![];
@@ -139,13 +141,12 @@ fn main() {
       let pp = pay.clone();
       let hh = hit.clone();
       let rr = reels.clone();
-      let bb = bar.clone();
+      // let bb = bar.clone();
 
       pool.push(new_base_worker_thread(
         pp,
         hh,
         rr,
-        bb,
         FEATURE_PAY_E,
         i,
         thread_count,
@@ -162,7 +163,7 @@ fn main() {
       feature_total += feature;
     }
 
-    bar.finish();
+    // bar.finish();
 
     println!(
       "RTP: {:.4}%, base RTP: {:.4}%, bonus RTP: {:.4}%, feature RTP: {:.4}%",

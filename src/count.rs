@@ -64,25 +64,28 @@ impl CountResult {
 
   pub fn feature_mod_test_pic01(v: &[i32]) -> CountResult {
     let mut count = 0;
+    let mut has_one = false;
     for i in v {
       if *i == 1 || *i == 0 {
         count += 1;
+        if *i == 1 {
+          has_one = true;
+        }
       } else {
         break;
       }
     }
-    CountResult { icon: 1, count }
-    // CountResult { icon: 0, count: 0 }
+    if has_one {
+      CountResult { icon: 1, count }
+    } else {
+      CountResult { icon: 1, count: 0 }
+    }
   }
 
-  pub fn feature(v: &[i32]) -> CountResult {
+  pub fn feature(v: &[i32]) -> (CountResult, CountResult) {
     let pic01_as_wild = CountResult::feature_mode_test_pic01_as_wild(&v);
     let pic01 = CountResult::feature_mod_test_pic01(&v);
 
-    if pic01_as_wild.count > pic01.count {
-      pic01_as_wild
-    } else {
-      pic01
-    }
+    (pic01, pic01_as_wild)
   }
 }
